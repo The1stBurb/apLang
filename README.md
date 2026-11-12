@@ -4,6 +4,8 @@ Its a language!!!
 
 To make this work, write some code in the `code/main.apl` file!
 
+Does require a module!! use `npm install prompt-sync`  
+
 
 ## Here is syntaxing!  
 note on the color styling: im stealing the javascript styling, which is *similar* to this language's, but some things wont quite work.
