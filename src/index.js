@@ -4,20 +4,20 @@ import { evaluate } from './runtime/interpreter.js';
 
 import { logs } from './helps.js';
 
-import fs from 'node:fs';
+// import fs from 'node:fs';
 // const fs = require('node:fs');
 
-run('./code/', 'main.apl');
+// run('./code/', 'main.apl');
 
 
-function run(folder, filename) {
+function run(folder, filename, input) {
     const highEnv = createHighEnv();
     const env = createGlobalEnv(undefined, 'Main');
 
     highEnv.declareVar('folder', folder, true);
     highEnv.declareVar('parser', new Parser(), true);
 
-	const input = fs.readFileSync(folder + filename, 'utf8');
+	// const input = fs.readFileSync(folder + filename, 'utf8');
 
     const program = highEnv.lookupVar('parser').produceAST(input);
     highEnv.declareVar(folder + filename, program);
@@ -29,5 +29,3 @@ function run(folder, filename) {
 	const result = evaluate(program, env, highEnv);
 	// console.log('res:',result);
 }
-
-    // console.log(process.memoryUsage());
