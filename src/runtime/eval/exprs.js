@@ -9,7 +9,6 @@ function eval_num_bin_expr(lhs, oper, rhs, node, env){
     const res = RuntimeRes('Eval Num Bin Expr');
 
     let result;
-
     if(oper == '+') result = lhs.__add__(rhs);
     else if(oper == '-') result = lhs.__sub__(rhs);
     else if(oper == '*') result = lhs.__mult__(rhs);
@@ -50,7 +49,7 @@ function eval_bool_logic_expr(lhs, oper, rhs, node, env){
     return res.check(result);
 }
 
-async function eval_body(node, stmts, env, henv, scope){
+function eval_body(node, stmts, env, henv, scope){
     const res = RuntimeRes('Eval Body');
 
     if(stmts.length == 0){ return res.success( new NullVal() ); }
@@ -144,31 +143,35 @@ export function eval_assign(node, env, henv){
     const res = RuntimeRes('Eval Assign');
 
     if(res.check( evaluate(node.val, env, henv) ) .error) return res;
+    const value = res.value;
 
-    if(node.assigne.kind == 'Ident') return res.check( env.assignVar(node, node.assigne.symbol, res.value) );
+    if(node.assigne.kind == 'Ident') return res.check( env.assignVar(node, node.assigne.symbol, value) );
     else if(node.assigne.kind == 'MemberExpr'){
         if(res.check(get_member_expr(node.assigne, env, henv) ).error) return res;
 
         const [obj, loc] = res.value;
-        return res.check( obj.set_index(loc, res.value, node, env) );
+        return res.check( obj.set_index(loc, value, node, env) );
     }
 }
 
 export function eval_bin_assign(node, env, henv){
     const res = RuntimeRes('Eval Bin Assign');
-
     const assigneRes = evaluate(node.assigne, env, henv), valueRes = evaluate(node.val, env, henv);
+
     if(assigneRes.error) return res.failure( assigneRes );
     if(valueRes.error) return res.failure( valueRes );
-
-    if(res.check( eval_num_bin_expr(assigneRes.value, node.oper[0], valueRes.error, node, env) ).error) return res;
-
-    if(node.assigne.kind == 'Ident') return res.check( env.assignVar(node, node.assigne.symbol, res.value) );
+    
+    if(res.check( eval_num_bin_expr(assigneRes.value, node.oper[0], valueRes.value, node, env) ).error) return res;
+    const value = res.value;
+    
+    if(node.assigne.kind == 'Ident'){
+        return res.check( env.assignVar(node, node.assigne.symbol, value) );
+    }
     else if(node.assigne.kind == 'MemberExpr'){
         if(res.check( get_member_expr(node.assigne, env, henv) ).error) return res;
 
         const [obj, loc] = res.value;
-        return res.check( obj.set_index(loc, res.value, node, env) );
+        return res.check( obj.set_index(loc, value, node, env) );
     }
 }
 

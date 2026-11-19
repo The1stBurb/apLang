@@ -179,17 +179,16 @@ export class ListVal extends RuntimeVal{
     get_value(){ return this.values; }
     get_index(idx, node, env){
         if(typeof idx === 'number'){
-            
-            if(idx > 0 && idx < this.values.length) return RuntimeSucc( this.values[idx] );
+            if(idx >= 0 && idx < this.values.length) return RuntimeSucc( this.values[idx] );
             return RuntimeFail( RuntimeErr(`Cannot get index ${idx} as it is out of range 0 - ${this.values.length - 1}! `, node.pos, env) );
         }
         else{ return RuntimeSucc( this['__'+idx]() ); }
     }
     set_index(idx, value, node, env){
         if(typeof idx === 'number'){
-            if(idx > 0 && idx < this.values.length) {
+            if(idx >= 0 && idx < this.values.length) {
                 this.values[idx] = value;
-                return this.get_index(idx);
+                return this.get_index(idx, node, env);
             }
             return RuntimeFail( RuntimeErr(`Cannot set index ${idx} as it is out of range 0 - ${this.values.length - 1}! `, node.pos, env) );
         }

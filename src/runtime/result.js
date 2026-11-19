@@ -15,8 +15,7 @@ export class RuntimeResult{
         return this;
     }
     success_ret(value){
-        this.success(value);
-        this.func_ret = true;
+        this.success(value, true);
         return this;
     }
 
@@ -39,6 +38,7 @@ export class RuntimeResult{
     reset(){
         this.error = null;
         this.value = null;
+        this.func_ret = false;
     }
 
     repr(srcCode){
@@ -89,18 +89,22 @@ export function RuntimeErr(message, pos, env){ return new RuntimeError(message, 
 
 function printSection(src, start, end){
     let sub = src.substring(start, end + 1);
+    let ss, se;
     for(let i = start; i >= Math.max(start - 50, 0); i--){
         if(src[i] == '\n'){
-            start = i;
+            ss = i;
             break;
         }
     }
+    if(!ss)ss = Math.max(start - 50, 0)
     for(let i = end; i <= Math.min(end + 50, src.length - 1); i++){
         if(src[i] == '\n'){
-            end = i;
+            se = i;
+            console.log(src[i].replaceAll('\n', '\\n'), i)
             break;
         }
     }
-    let s = src.substring(start + 1, end);
+    if(!se)se = Math.min(end + 50, src.length - 1);
+    let s = src.substring(ss + 1, se);
     return s += '\n      ' + ' '.repeat(s.indexOf(sub)) + '^'.repeat(sub.length);
 }

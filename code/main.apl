@@ -34,7 +34,7 @@ func printStats(guy){
     print()
 }
 
-let enem;
+let enem = {};
 
 const weaponNames = ['stick', 'staff', 'blade', 'club'];
 
@@ -61,7 +61,7 @@ func createEnem(){
     enem.hp = enem.max_hp
 }
 
-func calcATK(guy) -> guy.atk + enem.wpn.atk;
+func calcATK(guy) -> guy.atk + guy.wpn.atk;
 
 func round(){
     printStats(self)

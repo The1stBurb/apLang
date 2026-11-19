@@ -1,9 +1,11 @@
 import { NativeFuncVal, NullVal, ObjVal, NumVal, StrVal, BoolVal, ListVal } from './values.js';
 import { Graphics } from './graphics.js';
-// import promptSync from 'prompt-sync';
 import { RuntimeRes, RuntimeErr, RuntimeFail, RuntimeSucc } from './result.js';
 import { Pos } from '../frontend/ast.js';
 import { global, logToConsole } from '../index.js';
+import { logs } from '../helps.js';
+
+import promptSync from 'prompt-sync';
 
 
 function retType(n){
@@ -72,12 +74,12 @@ export function createGlobalEnv(parent, name){
     const env = new Env(parent, name);
 
     env.declareVar(null, '__graphics__', new Graphics(), true, true );
-    // env.declareVar('__prompt__', promptSync({ sigint: true }), true, true )
+    env.declareVar(null, '__prompt__', promptSync({ sigint: true }), true, true );
 
     env.declareVar(null, 'print', new NativeFuncVal((args, scope)=>{
-        global.lines.push
+        // global.lines.push
         // logToConsole
-        (args.map(
+        console.log(args.map(
             arg => arg
                 .str__()
                 .get_value()
@@ -86,9 +88,34 @@ export function createGlobalEnv(parent, name){
         return RuntimeSucc( new NullVal() );
     }), true, true);
     
-    // env.declareVar(null, 'input', new NativeFuncVal((args, scope)=>new StrVal(
-    //     env.lookupVar('__prompt__')(args.map(arg => arg.str__()).join(' '))
-    // )), true);
+    env.declareVar(null, 'input', new NativeFuncVal((args, scope)=>{
+        return RuntimeSucc( new StrVal( env.lookupVar(null, '__prompt__').value(
+            args.map(
+                arg => arg
+                    .str__()
+                    .get_value()
+                    .replaceAll('\\n', '\n')
+            ).join(' ')
+        )));
+        global.lines.push(args.map(
+            arg => arg
+                .str__()
+                .get_value()
+                .replaceAll('\\n', '\n')
+        ).join(' '));
+        
+        let steps = 0;
+        while(steps < Math.pow(2, 100)){
+            if(global.input!=''){
+                const value = global.input;
+                global.input = '';
+                console.log(`input: '${value}'`);
+                return RuntimeSucc( new StrVal(value) );
+            }
+        }
+        return RuntimeSucc( new StrVal('') );
+        
+    }), true, true);
     
 
     

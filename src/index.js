@@ -5,9 +5,9 @@ import { createGlobalEnv, createHighEnv } from './runtime/env.js';
 import { evaluate } from './runtime/interpreter.js';
 import { logs } from './helps.js';
 
-// import fs from 'node:fs';
+import fs from 'node:fs';
 
-// run('./code/', 'main.apl');
+run('./code/', 'main.apl');
 
 
 export const global = reactive({
@@ -15,6 +15,7 @@ export const global = reactive({
     console: null,
 
     lines: [],
+    input:'',
 
     parser: new Parser(),
     env: createGlobalEnv(undefined, 'Main'),
@@ -32,14 +33,15 @@ function run(folder, filename, input) {
     const program = highEnv.lookupVar('parser').produceAST(input);
     highEnv.declareVar(folder + filename, program);
 
-    // logs('progr:',program);
+    logs('progr:',program);
 
     /** @type {string} */
 	const result = evaluate(program, env, highEnv);
     result.repr(input);
+    // logs('env:',env);
 }
 
-export async function runCode(){
+export function runCode(){
     global.env.clear();
     global.lines = [];
 
@@ -49,6 +51,7 @@ export async function runCode(){
     const result = evaluate(program, global.env, undefined);
     result.repr(code);
 }
+// export function runCode(){}
 
 // Helper function to append logs
 export function logToConsole(text) {

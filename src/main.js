@@ -4,6 +4,7 @@ import './main.css';
 
 import { global } from './index.js';
 
+
 createApp(App).mount('#app')
 
 function waitForElement(selector, callback) {
@@ -63,7 +64,8 @@ const adder = makeAdder(1);
 
 print(adder(5,6))
 print(makeAdder()(10, 2))
-print(makeAdder()(2,3))`, -1);
+print(makeAdder()(2,3))
+print(input('yes?'))`, -1);
     global.editor = editor;
 
     // const consoleView = ace.edit("console");
@@ -75,4 +77,3 @@ print(makeAdder()(2,3))`, -1);
     // global.console = consoleView;
 
 });
-

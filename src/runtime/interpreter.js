@@ -9,7 +9,7 @@ import { RuntimeRes, RuntimeFail, RuntimeErr, RuntimeSucc } from './result.js';
  * @param {Stmt} astNode, @param {Env} env
  * @returns {RuntimeVal}
  */
-export async function evaluate(astNode, env, programs){
+export function evaluate(astNode, env, programs){
     if(!astNode){
         throw new Error('ast node doesnt exist?');
     }
@@ -138,7 +138,7 @@ export async function evaluate(astNode, env, programs){
         if(astNode.kind != 'Program'){
             console.log('something went wrong at this stmt');
             // console.log(astNode.kind)
-            logs(astNode);
+            // logs(astNode);
         }
         throw e;
     }
