@@ -3,18 +3,19 @@ import Env from './env.js';
 import { eval_func_decl, eval_program, eval_var_decl, eval_var_decl_mult, eval_arrow_func_decl } from './eval/stmts.js'
 import { eval_assign, eval_bin_expr, eval_call_expr, eval_ident, eval_obj_expr, eval_ret_expr, eval_for_expr, eval_import_expr, eval_member_expr, eval_logic_expr, eval_not_expr, eval_if_expr, eval_elif_expr, eval_else_expr, eval_while_expr, eval_bin_assign } from './eval/exprs.js';
 import { logs } from '../helps.js';
+import { RuntimeRes, RuntimeFail, RuntimeErr, RuntimeSucc } from './result.js';
 
 /**
  * @param {Stmt} astNode, @param {Env} env
  * @returns {RuntimeVal}
  */
-export function evaluate(astNode, env, programs){
+export async function evaluate(astNode, env, programs){
     if(!astNode){
         throw new Error('ast node doesnt exist?');
     }
     try{
         let func = (node, env, programs)=>{
-            throw `ast node not implemetned ${JSON.stringify(astNode)}`;
+            return RuntimeFail( RuntimeErr(`ast node not implemetned ${JSON.stringify(astNode)}`) );
         };
 
         switch(astNode.kind){
@@ -26,13 +27,19 @@ export function evaluate(astNode, env, programs){
 
             //-------------------------------------//
             case "NumLiteral":
-                return new NumVal(astNode.value);
+                return RuntimeSucc( new NumVal(astNode.value) );
         
             case "StrLiteral":
-                return new StrVal(astNode.value);
+                return RuntimeSucc( new StrVal(astNode.value) );
 
             case "ListLiteral":
-                return new ListVal(astNode.values.map(val => evaluate(val, env, programs)));
+                const res = RuntimeRes('Eval List Literal');
+                const vals = [];
+                for(const val of astNode.values){
+                    if(res.check( evaluate(val, env, programs) ).error) return res;
+                    vals.push(res.value)
+                }
+                return RuntimeSucc( new ListVal(vals) );
 
             case "Ident":
                 func = eval_ident;
@@ -123,11 +130,14 @@ export function evaluate(astNode, env, programs){
                 func = eval_arrow_func_decl;
                 break;    
         }
-        return func(astNode, env, programs);
+        const res = func(astNode, env, programs);
+        // console.log('astNode:', astNode.kind, astNode, res);
+        return RuntimeRes(`Evaluate '${astNode.kind}'`).check( res )
     }
     catch(e){
         if(astNode.kind != 'Program'){
             console.log('something went wrong at this stmt');
+            // console.log(astNode.kind)
             logs(astNode);
         }
         throw e;

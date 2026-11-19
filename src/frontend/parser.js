@@ -38,10 +38,15 @@ export default class Parser{
         return t;
     }
     isat(type){ return this.at().type == type; }
+    /** @returns {Token} */
+    posat(){ return this.toks[0].pos; }
 
     produceAST(sourceCode){
         this.toks = tokenize(sourceCode);
+        // console.log(this.toks, `'${sourceCode.substring(285, 293 + 1)}'`);
+
         this.program = new Program([]);
+        
         while(this.not_eof()){
             this.program.body.push(this.parse_stmt());
             if(this.isat(TokType.Semicolon)){
@@ -79,14 +84,17 @@ export default class Parser{
     }
 
     parse_import_expr(){
-        this.eat();
+        const start_pos = this.eat().pos;
+        
         const loc = this.expect([TokType.Str, TokType.Ident], 'Expected String or Identity');
-        this.expect(TokType.Semicolon, 'Expected Semicolon')
-        return new ImportExpr(loc);
+
+        const end_pos = this.expect(TokType.Semicolon, 'Expected Semicolon').pos;
+        return new ImportExpr(loc)
+            .set_pos(start_pos, end_pos);
     }
 
     parse_for_expr(){
-        this.eat();
+        const start = this.eat().pos;
 
         this.expect(TokType.lPara, "Expected open para");
 
@@ -103,13 +111,14 @@ export default class Parser{
         while(this.not_eof() && this.at().type != TokType.rBrace){
             body.push(this.parse_stmt());
         }
-        this.expect(TokType.rBrace, "expected right brace to end for loop");
+        const end = this.expect(TokType.rBrace, "expected right brace to end for loop").pos;
 
-        return new ForExpr(init, logic, inc, body);
+        return new ForExpr(init, logic, inc, body)
+            .set_pos(start, end);
     }
 
     parse_while_expr(){
-        this.eat();
+        const start = this.eat().pos;
 
         this.expect(TokType.lPara, "Expected open para");
         const logic = this.parse_bool_expr();
@@ -120,13 +129,14 @@ export default class Parser{
         while(this.not_eof() && this.at().type != TokType.rBrace){
             body.push(this.parse_stmt());
         }
-        this.expect(TokType.rBrace, "expected right brace to end for loop");
+        const end = this.expect(TokType.rBrace, "expected right brace to end for loop").pos;
 
-        return new WhileExpr(logic, body);
+        return new WhileExpr(logic, body)
+            .set_pos(start, end);
     }
 
     parse_if_expr(){
-        this.eat();
+        const start = this.eat().pos;
         this.expect(TokType.lPara, 'if requires left Para');
 
         const logic = this.parse_expr();
@@ -146,11 +156,13 @@ export default class Parser{
 
         let else_ = [];
         if(this.isat(TokType.Else)){ else_ = this.parse_else_expr(); }
+        const end = this.posat().start - 1;
         
-        return new IfExpr(logic, body, elifs, else_);
+        return new IfExpr(logic, body, elifs, else_)
+            .set_pos(start, end);
     }
     parse_elif_expr(){
-        this.expect(TokType.Elif, 'An elif should begin in an elif token!!!');
+        const start = this.expect(TokType.Elif, 'An elif should begin in an elif token!!!').pos;
         this.expect(TokType.lPara, 'elif requires left Para');
 
         const logic = this.parse_expr();
@@ -161,9 +173,10 @@ export default class Parser{
         while(this.not_eof() && this.at().type != TokType.rBrace){
             body.push(this.parse_stmt());
         }
-        this.expect(TokType.rBrace, 'Elif should end in a right brace');
+        const end = this.expect(TokType.rBrace, 'Elif should end in a right brace').pos;
         
-        return new ElifExpr(logic, body);
+        return new ElifExpr(logic, body)
+            .set_pos(start, end);
     }
     parse_else_expr(){
         this.expect(TokType.Else, 'An else should begin in an else token!!!');
@@ -179,7 +192,7 @@ export default class Parser{
     }
 
     parse_func_decl(){
-        this.eat();
+        const start = this.eat().pos;
 
         const name = this.expect(TokType.Ident, "Expected Ident after func decl").value;
         const args = this.parse_args();
@@ -194,8 +207,9 @@ export default class Parser{
         if(this.isat(TokType.Arrow)){
             this.eat();
             const val = this.parse_expr();
-            this.expect(TokType.Semicolon, "expected semicolon after arrow func");
-            return new ArrowFuncDecl(name, params, val);
+            const end = this.expect(TokType.Semicolon, "expected semicolon after arrow func").pos;
+            return new ArrowFuncDecl(name, params, val)
+                .set_pos(start, end);
         }
         else{
             this.expect(TokType.lBrace, "expected lBrace followng func def");
@@ -203,64 +217,75 @@ export default class Parser{
             while(this.not_eof() && this.at().type != TokType.rBrace){
                 body.push(this.parse_stmt());
             }
-            this.expect(TokType.rBrace, "expected rBrace to end func def");
-            return new FuncDecl(name, params, body);
+            const end = this.expect(TokType.rBrace, "expected rBrace to end func def").pos;
+            return new FuncDecl(name, params, body)
+                .set_pos(start, end);
         }
     }
 
     parse_ret_expr(){
-        this.expect(TokType.Ret, "Expected Return token!");
+        const start = this.expect(TokType.Ret, "Expected Return token!").pos;
         let value = null;
         if(!this.isat(TokType.Semicolon)) value = this.parse_expr();
 
-        this.expect(TokType.Semicolon, "Expected semicolon!");
-        return new RetExpr(value);
+        const end = this.expect(TokType.Semicolon, "Expected semicolon!").pos;
+        return new RetExpr(value)
+            .set_pos(start, end);
     }
 
     parse_var_decl(){
-        const isConst = this.eat().type == TokType.Const;
-        const decls = [];
+        const start = this.posat(),
+            isConst = this.eat().type == TokType.Const,
+            decls = [];
 
         while(this.not_eof()){
-            const ident = this.expect(TokType.Ident, "expected ident after var decl").value;
+            const ident = this.expect(TokType.Ident, "expected ident after var decl");
 
             if(this.isat(TokType.Semicolon)){
-                this.eat();
+                const end = this.eat().pos;
                 if(isConst){ throw new Error('const needs a value'); }
-                decls.push(new VarDecl(false, ident));
+                decls.push(new VarDecl(false, ident.value) .set_pos(ident.pos, end))
 
                 break;
             }
             else if(this.isat(TokType.Comma)){
-                this.eat();
+                const end = this.eat().pos;
                 if(isConst){ throw new Error('const needs a value'); }
 
-                decls.push(new VarDecl(false, ident));
+                decls.push(new VarDecl(false, ident.value)) .set_pos(ident.pos, end);
             }
             else{
                 this.expect(TokType.Eq, 'Expected tok "=" after Identifier Token');
 
-                decls.push( new VarDecl(isConst, ident, this.parse_expr()) );
+                const value = this.parse_expr();
 
-                const tok = this.expect([TokType.Comma, TokType.Semicolon], 'Expected tok "," or ";" after Value Token for Variable Decleration.').type;
-                if(tok == TokType.Semicolon){ break; }
+                const tok = this.expect([TokType.Comma, TokType.Semicolon], 'Expected tok "," or ";" after Value Token for Variable Decleration.');
+
+                decls.push( new VarDecl(isConst, ident.value, value) .set_pos(start, tok.pos) );
+                if(tok.type == TokType.Semicolon){ break; }
             }
 
         }
         if(decls.length == 1){ return decls[0]; }
-        else{ return new VarDeclMult(decls); }return new VarDeclMult(decls);
+        else{ return new VarDeclMult(decls)
+            .set_pos(start, this.posat().start - 1); }return new VarDeclMult(decls);
     }
 
     parse_expr(){ return this.parse_assign_expr(); }
     parse_assign_expr(){
+        const start = this.posat();
+
         const left = this.parse_obj_expr();
 
         if(this.isat(TokType.Eq)){
-            this.eat();
-            return new AssignExpr(left, this.parse_assign_expr());
+            const end = this.eat().pos;
+            return new AssignExpr(left, this.parse_assign_expr())
+                .set_pos(start, end);
         }
         else if(this.isat(TokType.BinEq)){
-            return new BinAssignExpr(left, this.eat().value, this.parse_assign_expr());
+            const tok = this.eat();
+            return new BinAssignExpr(left, tok.value, this.parse_assign_expr())
+                .set_pos(start, tok.pos);
         }
 
         return left;
@@ -270,37 +295,41 @@ export default class Parser{
         if(this.isat(TokType.lBrack)) return this.parse_list_expr();
         if(!this.isat(TokType.lBrace)) return this.parse_maths_expr();
 
-        this.eat();
+        const start = this.eat().pos;
         const props = [];
         
         while(this.not_eof() && !this.isat(TokType.rBrace)){
-            const key = this.expect(TokType.Ident, "expected literal key").value;
+            const key = this.expect(TokType.Ident, "expected literal key");
 
             if(this.isat(TokType.Comma)){
                 this.eat();
-                props.push(new Property(key));
+                props.push(new Property(key.value)).set_pos(key.pos, key.pos);
                 continue;
             }
             else if(this.isat(TokType.rBrace)){
-                props.push(new Property(key));
+                props.push(new Property(key.value)).set_pos(key.pos, key.pos);
                 continue;
             }
 
             this.expect(TokType.Colon, "expects a colon after literl key");
             const value = this.parse_expr();
-            props.push(new Property(key, value));
+            props.push(new Property(key.value, value).set_pos(key.pos, this.posat()));
             if(!this.isat(TokType.rBrace)) this.expect(TokType.Comma, "Needs comma after obj key value pair");
         }
 
-        this.expect(TokType.rBrace, "needs rBrace to end obj");
-        return new ObjLiteral(props);
+        const end = this.expect(TokType.rBrace, "needs rBrace to end obj").pos;
+        return new ObjLiteral(props)
+            .set_pos(start, end);
     }
 
     parse_list_expr(){
-        this.expect(TokType.lBrack, 'there *really* should be an [ here!');
+        const start = this.expect(TokType.lBrack, 'there *really* should be an [ here!').pos;
+        
         const values = this.parse_args_list();
-        this.expect(TokType.rBrack, 'Lists should end in brackets!');
-        return new ListLiteral(values);
+        
+        const end = this.expect(TokType.rBrack, 'Lists should end in brackets!').pos;
+        return new ListLiteral(values)
+            .set_pos(start, end);
     }
     
     parse_maths_expr(){ return this.parse_logic_or_expr(this); }
@@ -308,22 +337,29 @@ export default class Parser{
     
     parse_logic_or_expr(loc){
         let left = this.parse_logic_and_expr();
+
+        const start = left.pos;
         while(this.at().value == '||'){
             left = new LogicExpr(left, this.eat().value, this.parse_logic_and_expr())
+                .set_pos(start, this.posat());
         }
         return left;
     }
     parse_logic_and_expr(loc){
         let left = this.parse_logic_expr();
+
+        const start = left.pos;
         while(this.at().value == '&&'){
             left = new LogicExpr(left, this.eat().value, this.parse_logic_expr())
+                .set_pos(start, this.posat());
         }
         return left;
     }
     parse_not_large_expr(){
         if(this.isat(TokType.Not)){
-            this.eat();
-            return new NotExpr(this.parse_not_large_expr());
+            const start = this.eat().pos;
+            return new NotExpr(this.parse_not_large_expr())
+                .set_pos(start, this.posat());
         }
         return this.parse_logic_expr();
     }
@@ -335,6 +371,7 @@ export default class Parser{
         let left = this.parse_add_expr();
         while(this.at().value == ">" || this.at().value == "<" || this.at().value == '>=' || this.at().value == '<=' || this.at().value == '==' || this.at().value == '!='){
             left = new BinaryExpr(left, this.eat().value, this.parse_add_expr())
+                .set_pos(left.pos, this.posat());
         }
         return left;
         
@@ -343,7 +380,8 @@ export default class Parser{
     parse_add_expr(){
         let left = this.parse_mult_expr();
         while(this.at().value == "+" || this.at().value == "-"){
-            left = new BinaryExpr(left, this.eat().value, this.parse_mult_expr());
+            left = new BinaryExpr(left, this.eat().value, this.parse_mult_expr())
+            .set_pos(left.pos, this.posat());
         }
         return left;
     }
@@ -352,14 +390,16 @@ export default class Parser{
         let left = this.parse_not_small_expr();
         while(this.at().value == "*" || this.at().value == "/" || this.at().value == "%"){
             left = new BinaryExpr(left, this.eat().value, this.parse_not_small_expr())
+                .set_pos(left.pos, this.posat());
         }
         return left;
     }
 
     parse_not_small_expr(){
         if(this.isat(TokType.Not)){
-            this.eat();
-            return new NotExpr(this.parse_not_small_expr());
+            const start = this.eat().pos;
+            return new NotExpr(this.parse_not_small_expr())
+                .set_pos(start, this.posat());
         }
         return this.parse_call_member_expr();
     }
@@ -370,7 +410,8 @@ export default class Parser{
     }
 
     parse_call_expr(caller){
-        let call_expr = new CallExpr(caller, this.parse_args());
+        let call_expr = new CallExpr(caller, this.parse_args())
+            .set_pos(caller.pos, this.posat());
         
         if(this.isat(TokType.lPara)) call_expr = this.parse_call_expr(call_expr);
         return call_expr;
@@ -410,21 +451,25 @@ export default class Parser{
                 prop = this.parse_expr();
                 this.expect(TokType.rBrack, "expected right bracket");
             }
-            obj = new MemberExpr(obj, prop, comp);
+            obj = new MemberExpr(obj, prop, comp)
+                .set_pos(obj.pos, this.posat());
         }
         return obj;
     }
 
     parse_primary_expr(){
         const tk = this.at().type;
-
+        const start = this.posat();
         switch(tk){
             case TokType.Ident:
-                return new Ident(this.eat().value);
+                return new Ident(this.eat().value)
+                    .set_pos(start, start);
             case TokType.Num:
-                return new NumLiteral(parseFloat(this.eat().value));
+                return new NumLiteral(parseFloat(this.eat().value))
+                    .set_pos(start, start);
             case TokType.Str:
-                return new StrLiteral(this.eat().value);
+                return new StrLiteral(this.eat().value)
+                    .set_pos(start, start);
 
             case TokType.lPara:
                 this.eat();

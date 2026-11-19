@@ -1,3 +1,4 @@
+import { Position, Pos } from './ast.js';
 /**
  * @param {string[]} items
  * @returns {Object.<string, int>}
@@ -79,10 +80,11 @@ const KEYWORDS = {
 };
 
 export class Token{
-    /** @param {string} value, @param {TokType} type */
-    constructor(value, type){
+    /** @param {string} value, @param {TokType} type@param {Position} pos} */
+    constructor(value, type, pos){
         /** @type {string} */this.value = value
         /** @type {TokType} */this.type = type;
+        /** @type {Position} */this.pos = pos;
     }
 };
 
@@ -90,8 +92,8 @@ export class Token{
  * @param {string} value, @param {TokType} type
  * @returns {Token}
  */
-function token(value, type){
-    return new Token(value, type);
+function token(value, type, pos){
+    return new Token(value, type, pos);
 }
 
 function isalpha(src) { return src.toUpperCase() != src.toLowerCase(); }
@@ -106,129 +108,145 @@ function isint(str) {
 export function tokenize(sourceCode){
     const tokens = [];
     const src = sourceCode.split("");
+    var idx = 0, line = 0;;
+
+    const shift = ()=>{ idx++; if(src[0] == '\n'){ line++; } return src.shift(); };
+    const getPos = (len) => Pos(idx - (len ?? 1), idx - 1, line);
+    const newTok = (value, tok, len)=>{
+        tokens.push(
+            token(
+                value,
+                tok,
+                getPos(
+                    value.length + (len ?? 0)
+                )
+            )
+        );
+    };
+
     while (src.length > 0){
         const tok = src[0];
-        if(tok == '(') tokens.push(token(src.shift(), TokType.lPara));
-        else if(tok == ')') tokens.push(token( src.shift(), TokType.rPara ));
-        else if(tok == '[') tokens.push(token( src.shift(), TokType.lBrack ));
-        else if(tok == ']') tokens.push(token( src.shift(), TokType.rBrack ));
-        else if(tok == '{') tokens.push(token( src.shift(), TokType.lBrace ));
-        else if(tok == '}') tokens.push(token( src.shift(), TokType.rBrace ));
+        if(tok == '(') newTok(shift(), TokType.lPara);
+        else if(tok == ')') newTok( shift(), TokType.rPara );
+        else if(tok == '[') newTok( shift(), TokType.lBrack );
+        else if(tok == ']') newTok( shift(), TokType.rBrack );
+        else if(tok == '{') newTok( shift(), TokType.lBrace );
+        else if(tok == '}') newTok( shift(), TokType.rBrace );
         else if(tok == '<') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token('<' + src.shift(), TokType.BinOp ));
-            else { tokens.push(token( '<', TokType.lArrow )); }
+            shift();
+            if(src[0] == '=') newTok('<' + shift(), TokType.BinOp );
+            else { newTok( '<', TokType.lArrow ); }
         }
         else if(tok == '>') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token('>' + src.shift(), TokType.BinOp ));
-            else { tokens.push(token( '>', TokType.rArrow )); }
+            shift();
+            if(src[0] == '=') newTok('>' + shift(), TokType.BinOp );
+            else { newTok( '>', TokType.rArrow ); }
         }
 
         else if(tok == '-') {
-            src.shift();
-            if(src[0] == '>') tokens.push(token(tok + src.shift(), TokType.Arrow ));
-            else if(src[0] == '=') tokens.push(token(tok + src.shift(), TokType.BinEq));
+            shift();
+            if(src[0] == '>') newTok(tok + shift(), TokType.Arrow );
+            else if(src[0] == '=') newTok(tok + shift(), TokType.BinEq );
             else if(isint(src[0])){
-                let num = '';
+                let num = '-';
                 while(src.length > 0 && (isint(src[0]) || src[0] =='.')){
-                    num += src.shift();
+                    num += shift();
                 }
-                tokens.push(token(num, TokType.Num ))
+                newTok( num, TokType.Num );
             }
-            else { tokens.push(token( tok, TokType.BinOp )); }
+            else { newTok( tok, TokType.BinOp ); }
         }
         else if(tok == '+') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token(tok + src.shift(), TokType.BinEq));
-            else { tokens.push(token( tok, TokType.BinOp )); }
+            shift();
+            if(src[0] == '=') newTok(tok + shift(), TokType.BinEq );
+            else { newTok( tok, TokType.BinOp ); }
         }
         else if(tok == '/') {
-            src.shift();
+            shift();
             if(src[0] == '/'){
                 while(src.length > 0 && src[0]!= '\n'){
-                    src.shift();
+                    shift();
                 }
             }
-            else if(src[0] == '=') tokens.push(token(tok + src.shift(), TokType.BinEq));
-            else { tokens.push(token( tok, TokType.BinOp )); }
+            else if(src[0] == '=') newTok(tok + shift(), TokType.BinEq );
+            else { newTok( tok, TokType.BinOp ); }
         }
         else if(tok == '*') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token(tok + src.shift(), TokType.BinEq));
-            else { tokens.push(token( tok, TokType.BinOp )); }
+            shift();
+            if(src[0] == '=') newTok(tok + shift(), TokType.BinEq );
+            else { newTok( tok, TokType.BinOp ) }
         }
-        else if(isBinOp(tok)) tokens.push(token( src.shift(), TokType.BinOp ));
+        else if(isBinOp(tok)) newTok( shift(), TokType.BinOp )
         
         else if(tok == '=') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token('=' + src.shift(), TokType.BinOp ));
-            else { tokens.push(token( '=', TokType.Eq )); }
+            shift();
+            if(src[0] == '=') newTok('=' + shift(), TokType.BinOp )
+            else { newTok( '=', TokType.Eq ) }
         }
         else if(tok == '!') {
-            src.shift();
-            if(src[0] == '=') tokens.push(token('!' + src.shift(), TokType.BinOp ));
-            else { tokens.push(token( '!', TokType.Not )); }
+            shift();
+            if(src[0] == '=') newTok('!' + shift(), TokType.BinOp )
+            else { newTok( '!', TokType.Not ) }
         }
         else if(tok == '&') {
-            src.shift();
-            if(src[0] == '&') tokens.push(token('&' + src.shift(), TokType.LogicOp ));
-            else { tokens.push(token( '&', TokType.Ampersand )); }
+            shift();
+            if(src[0] == '&') newTok('&' + shift(), TokType.LogicOp )
+            else { newTok( '&', TokType.Ampersand ) }
         }
         else if(tok == '|') {
-            src.shift();
-            if(src[0] == '|') tokens.push(token('|' + src.shift(), TokType.LogicOp ));
-            else { tokens.push(token( '|', TokType.VertBar )); }
+            shift();
+            if(src[0] == '|') newTok('|' + shift(), TokType.LogicOp )
+            else { newTok( '|', TokType.VertBar ) }
         }
-        else if(tok == ';') tokens.push(token( src.shift(), TokType.Semicolon ));
-        else if(tok == ':') tokens.push(token( src.shift(), TokType.Colon ));
-        else if(tok == ',') tokens.push(token( src.shift(), TokType.Comma ));
-        else if(tok == '.') tokens.push(token( src.shift(), TokType.Dot ));
+        else if(tok == ';') newTok( shift(), TokType.Semicolon )
+        else if(tok == ':') newTok( shift(), TokType.Colon )
+        else if(tok == ',') newTok( shift(), TokType.Comma )
+        else if(tok == '.') newTok( shift(), TokType.Dot )
 
         else if(tok == '\''){
             let str = '';
-            src.shift();
+            shift();
             while(src.length > 0 && src[0] != '\''){
-                if(src[0] == '\\'){ str += src.shift(); }
-                str += src.shift();
+                if(src[0] == '\\'){ str += shift(); }
+                str += shift();
             }
-            src.shift();
-            tokens.push(token(str.replaceAll('\\n', '\n'), TokType.Str ))
+            shift();
+            newTok(str, TokType.Str , 2);
         }else if(tok == '\"'){
             let str = '';
-            src.shift();
+            shift();
             while(src.length > 0 && src[0] != '\"'){
-                if(src[0] == '\\'){ str += src.shift(); }
-                str += src.shift();
+                if(src[0] == '\\'){ str += shift(); }
+                str += shift();
             }
-            src.shift();
-            tokens.push(token(str.replaceAll('\\n', '\n'), TokType.Str ))
+            shift();
+            newTok(str, TokType.Str, 2 );
         }
 
         else if(isint(tok)){
             let num = '';
             while(src.length > 0 && (isint(src[0]) || src[0] =='.')){
-                num += src.shift();
+                num += shift();
             }
-            tokens.push(token(num, TokType.Num ))
+            newTok(num, TokType.Num );
         }
         else if(isalpha(tok)){
             let ident = '';
             while(src.length > 0 && ( isalpha(src[0]) || isint(src[0]) || src[0] == '_' )){
-                ident += src.shift();
+                ident += shift();
             }
             const res = KEYWORDS[ident];
-            if(res) tokens.push(token(ident, res));
-            else tokens.push(token(ident, TokType.Ident));
+            if(res) newTok(ident, res)
+            else newTok(ident, TokType.Ident)
         }
-        else if(isskippable(tok)) src.shift();
+        else if(isskippable(tok)) shift();
 
         else{
             console.error('Unrecgonized char found: \'' + tok + '\'');
         }
 
     }
-    tokens.push(token(0, TokType.EOF));
+    newTok('', TokType.EOF)
 
     return tokens;
 }

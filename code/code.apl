@@ -14,5 +14,5 @@ for(let i = 0; i < 3; i=i+1){
 const adder = makeAdder(1);
 
 print(adder(5,6))
-print(makeAdder()(10, 2))
-print(makeAdder()(2,3))
+print(makeAdder(52)(10, 2), spaghetti)
+print(makeAdder(12)(2,3))

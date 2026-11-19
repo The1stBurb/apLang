@@ -1,15 +1,33 @@
-import util from 'node:util';
+// import util from 'node:util';
 
+export class Position{
+    constructor(start, end, line){
+        this.start = start ?? -1;
+        this.end = end ?? -1;
+        this.line = line ?? -1;
+    }
+}
+export function Pos(start, end, line) { return new Position(start, end, line); }
 
 export class Stmt{
-    constructor(kind){
+    constructor(kind, pos){
         /** @type {string} */ this.kind = kind;
+        /** @type {Position} */ this.pos = pos ?? Pos();
+    }
+    set_pos(start_pos, end_pos){
+        var line = 0;
+        if(start_pos instanceof Position) { line = start_pos.line; start_pos = start_pos.start; }
+        if(end_pos instanceof Position) end_pos = end_pos.end;
+
+        this.pos = Pos(start_pos, end_pos, line);
+
+        return this;
     }
 };
 export class Program extends Stmt{
     /** @param {Stmt[]} body */
     constructor(body){
-        super("Program");
+        super("Program", null);
 
         /** @type {Stmt[]} */ this.body = body;
     }
@@ -29,7 +47,7 @@ export class VarDecl extends Stmt{
         /** @type {Expr?} */ this.value = value;
     }
     
-    [util.inspect.custom](depth, options, inspect) { return `VD[ ${this.const ? 'const ' : ''}${this.ident} = ${inspect(this.value, options)} ]`; }
+    // [util.inspect.custom](depth, options, inspect) { return `VD[ ${this.const ? 'const ' : ''}${this.ident} = ${inspect(this.value, options)} ]`; }
 };
 
 export class VarDeclMult extends Stmt{
@@ -40,7 +58,7 @@ export class VarDeclMult extends Stmt{
         /** @type {VarDecl[]} */ this.decls = decls;
     }
     
-    [util.inspect.custom](depth, options, inspect) { return `VDM${inspect(this.decls, options)}`; }
+    // [util.inspect.custom](depth, options, inspect) { return `VDM${inspect(this.decls, options)}`; }
 };
 
 export class ArrowFuncDecl extends Stmt{
@@ -77,7 +95,7 @@ export class AssignExpr extends Expr{
         /** @type {Expr} */this.val = val;
     }
     
-    [util.inspect.custom](depth, options, inspect) { return `AE[ ${inspect(this.assigne, options)} = ${inspect(this.val, options)} ]`; }
+    // [util.inspect.custom](depth, options, inspect) { return `AE[ ${inspect(this.assigne, options)} = ${inspect(this.val, options)} ]`; }
 };
 export class BinAssignExpr extends Expr{
     /** @param {Expr} assigne, @param {string} oper @param {Expr} val*/ constructor(assigne, oper, val){
@@ -88,7 +106,7 @@ export class BinAssignExpr extends Expr{
         /** @type {Expr} */this.val = val;
     }
     
-    [util.inspect.custom](depth, options, inspect) { return `BAE[ ${inspect(this.assigne, options)} ${this.oper} ${inspect(this.val, options)} ]`; }
+    // [util.inspect.custom](depth, options, inspect) { return `BAE[ ${inspect(this.assigne, options)} ${this.oper} ${inspect(this.val, options)} ]`; }
 };
 
 export class CallExpr extends Expr{
@@ -98,7 +116,7 @@ export class CallExpr extends Expr{
         /** @type {Expr} */this.caller = caller;
         /** @type {Expr[]} */this.args = args;
     }
-    [util.inspect.custom](depth, options, inspect) { return `${inspect(this.caller, options)}<=${inspect(this.args, options)}`; }
+    // [util.inspect.custom](depth, options, inspect) { return `${inspect(this.caller, options)}<=${inspect(this.args, options)}`; }
 };
 
 export class MemberExpr extends Expr{
@@ -110,7 +128,7 @@ export class MemberExpr extends Expr{
         /** @type {Expr} */this.prop = prop;
         /** @type {bool} */this.comp = comp;
     }
-    [util.inspect.custom](depth, options, inspect) { return `${inspect(this.obj, options)}.${inspect(this.prop, options)} `; }
+    // [util.inspect.custom](depth, options, inspect) { return `${inspect(this.obj, options)}.${inspect(this.prop, options)} `; }
 };
 
 export class RetExpr extends Expr{
@@ -140,7 +158,7 @@ export class BinaryExpr extends Expr{
         /** @type {Expr} */this.right = right;
         /** @type {string} */this.oper = oper;
     }
-    [util.inspect.custom](depth, options, inspect) { return `( ${inspect(this.left, options)} ${this.oper} ${inspect(this.right, options)} )`; }
+    // [util.inspect.custom](depth, options, inspect) { return `( ${inspect(this.left, options)} ${this.oper} ${inspect(this.right, options)} )`; }
 };
 
 export class LogicExpr extends Expr{
@@ -151,7 +169,7 @@ export class LogicExpr extends Expr{
         /** @type {Expr} */this.right = right;
         /** @type {string} */this.oper = oper;
     }
-    [util.inspect.custom](depth, options, inspect) { return `[ ${inspect(this.left, options)} ${this.oper} ${inspect(this.right, options)} ]`; }
+    // [util.inspect.custom](depth, options, inspect) { return `[ ${inspect(this.left, options)} ${this.oper} ${inspect(this.right, options)} ]`; }
 };
 
 export class NotExpr extends Expr{
@@ -160,7 +178,7 @@ export class NotExpr extends Expr{
         
         /** @type {Expr} */this.logic = logic;
     }
-    [util.inspect.custom](depth, options, inspect) { return `NOT:${inspect(this.logic, options)}`; }
+    // [util.inspect.custom](depth, options, inspect) { return `NOT:${inspect(this.logic, options)}`; }
 };
 
 export class BoolExpr extends Expr{
@@ -234,7 +252,7 @@ export class Ident extends Expr{
         super('Ident');
         /** @type {string} */ this.symbol = symbol;
     }
-    [util.inspect.custom](depth, options, inspect) { return `${inspect(this.symbol, options)}`; }
+    // [util.inspect.custom](depth, options, inspect) { return `i${inspect(this.symbol, options)}`; }
 };
 
 export class NumLiteral extends Expr{
@@ -242,7 +260,7 @@ export class NumLiteral extends Expr{
         super('NumLiteral');
         /** @type {number} */ this.value = value;
     }
-    [util.inspect.custom](depth, options, inspect) { return `${inspect(this.value, options)}`; }
+    // [util.inspect.custom](depth, options, inspect) { return `${inspect(this.value, options)}`; }
 };
 
 export class StrLiteral extends Expr{
@@ -250,7 +268,7 @@ export class StrLiteral extends Expr{
         super('StrLiteral');
         /** @type {string} */ this.value = value;
     }
-    [util.inspect.custom](depth, options, inspect) { return `${inspect(this.value, options)}`.replaceAll("'", '"'); }
+    // [util.inspect.custom](depth, options, inspect) { return `${inspect(this.value, options)}`.replaceAll("'", '"'); }
 };
 
 export class ListLiteral extends Expr{
@@ -259,14 +277,14 @@ export class ListLiteral extends Expr{
         /** @type {any[]} */ this.values = values;
     }
     
-    [util.inspect.custom](depth, options, inspect) {
-        let s = '';
-        for(let i = 0; i<this.values.length; i++){
-            s += inspect(this.values[i], options);
-            if(i < this.values.length - 1) s += ', ';
-        }
-        return `[ ${s} ]`;
-    }
+    // [util.inspect.custom](depth, options, inspect) {
+    //     let s = '';
+    //     for(let i = 0; i<this.values.length; i++){
+    //         s += inspect(this.values[i], options);
+    //         if(i < this.values.length - 1) s += ', ';
+    //     }
+    //     return `[ ${s} ]`;
+    // }
 };
 
 export class Property extends Expr{

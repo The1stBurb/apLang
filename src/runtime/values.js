@@ -1,4 +1,5 @@
 import Env from './env.js';
+import { RuntimeRes, RuntimeErr, RuntimeFail, RuntimeSucc } from './result.js';
 
 
 function Val(type, value){
@@ -42,7 +43,7 @@ export class RuntimeVal{
     __and__(other){ return new BoolVal(this.get_value() && other.get_value()); }
     __or__(other){ return new BoolVal(this.get_value() || other.get_value()); }
 
-    str__(){ return `${this.get_value()}`; }
+    str__(){ return RuntimeSucc( new StrVal( `${this.get_value()}` ) ).value; }
     // __func__ => arg1 func arg2, i.e. __add__ => arg1 + arg2
     // __func => arg1.func, i.e. __length => list.length
     // func__ => func(arg1), i.e. str__ => str(arg1)
@@ -176,13 +177,23 @@ export class ListVal extends RuntimeVal{
         this.values = values ?? [];
     }
     get_value(){ return this.values; }
-    get_index(idx){
-        if(typeof idx === 'number'){ return this.values[idx]; }
-        else{ return this['__'+idx](); }
+    get_index(idx, node, env){
+        if(typeof idx === 'number'){
+            
+            if(idx > 0 && idx < this.values.length) return RuntimeSucc( this.values[idx] );
+            return RuntimeFail( RuntimeErr(`Cannot get index ${idx} as it is out of range 0 - ${this.values.length - 1}! `, node.pos, env) );
+        }
+        else{ return RuntimeSucc( this['__'+idx]() ); }
     }
-    set_index(idx, value){
-        if(typeof idx === 'number'){ this.values[idx] = value; return this.get_index(idx); }
-        else{ return new NullVal(); }
+    set_index(idx, value, node, env){
+        if(typeof idx === 'number'){
+            if(idx > 0 && idx < this.values.length) {
+                this.values[idx] = value;
+                return this.get_index(idx);
+            }
+            return RuntimeFail( RuntimeErr(`Cannot set index ${idx} as it is out of range 0 - ${this.values.length - 1}! `, node.pos, env) );
+        }
+        else{ return RuntimeSucc( new NullVal() ); }
     }
     str__(){
         let s = '[';
@@ -190,10 +201,10 @@ export class ListVal extends RuntimeVal{
             s += this.values[i].get_value();
             if(i < this.values.length - 1) s += ', ';
         }
-        return s + ']';
+        return RuntimeSucc( new StrVal( s + ']' ) ).value;
     }
-    __length(){ return new NumVal(this.values.length); }
-    __push(){ return new NativeFuncVal((args,scope)=>{ this.values.push(args[0]); }); }
+    __length(){ return RuntimeSucc( new NumVal(this.values.length) ); }
+    __push(){ return RuntimeSucc( new NativeFuncVal((args,scope)=>{ this.values.push(args[0]); }) ); }
 
     copy(){
         const props = [];
@@ -211,8 +222,14 @@ export class ObjVal extends RuntimeVal{
     }
     get_value(){ return this; }
 
-    get_index(idx){ return this.props[idx]; }
-    set_index(idx, value){ this.props[idx] = value; return this.get_index(); }
+    get_index(idx, node, env){
+        if(idx in this.props) return RuntimeSucc( this.props[idx] );
+        return RuntimeFail( RuntimeErr(`Property '${idx}' does not exist in object.`, node.pos, env) );
+    }
+    set_index(idx, value, node, env){
+        this.props[idx] = value;
+        return this.get_index(idx, node, env);
+    }
 
     copy(){
         const props = [];

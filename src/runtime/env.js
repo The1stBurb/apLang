@@ -1,6 +1,9 @@
 import { NativeFuncVal, NullVal, ObjVal, NumVal, StrVal, BoolVal, ListVal } from './values.js';
 import { Graphics } from './graphics.js';
-import promptSync from 'prompt-sync';
+// import promptSync from 'prompt-sync';
+import { RuntimeRes, RuntimeErr, RuntimeFail, RuntimeSucc } from './result.js';
+import { Pos } from '../frontend/ast.js';
+import { global, logToConsole } from '../index.js';
 
 
 function retType(n){
@@ -13,7 +16,7 @@ function retType(n){
 
 function handleFunc(args, func, Ret){
     args = args.map(arg => arg.get_value());
-    return new Ret( func(...args) );
+    return RuntimeSucc( new Ret(func(...args)) );
 }
 
 function handleOverloadFunc(args, funcs, defFunc){
@@ -68,21 +71,28 @@ function randint(min, max){ return Math.round( min + Math.random() * (max - min)
 export function createGlobalEnv(parent, name){
     const env = new Env(parent, name);
 
-    env.declareVar('__graphics__', new Graphics() );
-    env.declareVar('__prompt__', promptSync({ sigint: true }) )
+    env.declareVar(null, '__graphics__', new Graphics(), true, true );
+    // env.declareVar('__prompt__', promptSync({ sigint: true }), true, true )
 
-    env.declareVar('print', new NativeFuncVal((args, scope)=>{
-        console.log(...args.map(arg => arg.str__()));
-        return new NullVal();
-    }), true);
+    env.declareVar(null, 'print', new NativeFuncVal((args, scope)=>{
+        global.lines.push
+        // logToConsole
+        (args.map(
+            arg => arg
+                .str__()
+                .get_value()
+                .replaceAll('\\n', '\n')
+        ).join(' '));
+        return RuntimeSucc( new NullVal() );
+    }), true, true);
     
-    env.declareVar('input', new NativeFuncVal((args, scope)=>new StrVal(
-        env.lookupVar('__prompt__')(args.map(arg => arg.str__()).join(' '))
-    )), true);
+    // env.declareVar(null, 'input', new NativeFuncVal((args, scope)=>new StrVal(
+    //     env.lookupVar('__prompt__')(args.map(arg => arg.str__()).join(' '))
+    // )), true);
     
 
     
-    env.declareVar('Math', new ObjVal({
+    env.declareVar(null, 'Math', new ObjVal({
         'floor': create.func(Math.floor, NumVal),
         'ceil': create.func(Math.ceil, NumVal),
         'min': create.func(Math.min,NumVal),
@@ -98,8 +108,8 @@ export function createGlobalEnv(parent, name){
 
 
         'PI': new NumVal(Math.PI),
-    }), true);
-    env.declareVar('Rand', new ObjVal({
+    }), true, true);
+    env.declareVar(null, 'Rand', new ObjVal({
         'random': create.ol(
             olf(0, Math.random, NumVal),
             olf(1, (n) => Math.random() * n, NumVal),
@@ -110,42 +120,42 @@ export function createGlobalEnv(parent, name){
             if(args[0].type != 'list'){ return new NullVal(); }
             /** @type {ListVal} */let arg = args[0];
             let n = randint(0, arg.values.length - 1);
-            return arg.get_index(n);
+            return arg.get_index(n, Pos(), scope);
         }),
-    }), true);
+    }), true, true);
 
-    env.declareVar('Screen', new ObjVal({
+    env.declareVar(null, 'Screen', new ObjVal({
         'fill': new NativeFuncVal( (args, scope) => {
-            env.lookupVar('__graphics__').setFill(...args.map(arg => arg.get_value()) );
-            return new NullVal();
+            env.lookupVar('__graphics__').value .setFill(...args.map(arg => arg.get_value()) );
+            return RuntimeSucc( new NullVal() );
         }),
         'background': new NativeFuncVal( (args, scope) => {
-            env.lookupVar('__graphics__').setBackground(...args.map(arg => arg.get_value()) );
-            return new NullVal();
+            env.lookupVar('__graphics__').value .setBackground(...args.map(arg => arg.get_value()) );
+            return RuntimeSucc( new NullVal() );
         }),
         // 'color': new NativeFuncVal( (arg, scope) => new NumVal(
         //     Math.floor( arg[0].get_value() ))
         // ),
 
         'rect': new NativeFuncVal( (args, scope) => {
-            env.lookupVar('__graphics__').createRect(...args.map(arg => arg.get_value()) );
-            return new NullVal();
+            env.lookupVar('__graphics__').value .createRect(...args.map(arg => arg.get_value()) );
+            return RuntimeSucc( new NullVal() );
         }),
         'ellipse': new NativeFuncVal( (args, scope) => {
-            env.lookupVar('__graphics__').createEllipse(...args.map(arg => arg.get_value()) );
-            return new NullVal();
+            env.lookupVar('__graphics__').value .createEllipse(...args.map(arg => arg.get_value()) );
+            return RuntimeSucc( new NullVal() );
         }),
 
         'draw': new NativeFuncVal( (args, scope) => {
-            env.lookupVar('__graphics__').draw();
-            return new NullVal();
+            env.lookupVar('__graphics__').value .draw();
+            return RuntimeSucc( new NullVal() );
         }),
-    }), true);
+    }), true, true);
 
     
-    env.declareVar('true', new BoolVal(true));
-    env.declareVar('false', new BoolVal(false));
-    env.declareVar('null', new BoolVal(null));
+    env.declareVar(null, 'true', new BoolVal(true), true, true);
+    env.declareVar(null, 'false', new BoolVal(false), true, true);
+    env.declareVar(null, 'null', new BoolVal(null), true, true);
 
     return env;
 }
@@ -155,39 +165,80 @@ export function createHighEnv(){
 }
 
 export default class Env{
-    /** @param {Env?} parentEnv@param {string?} name*/constructor(parentEnv, name){
+    /** @param {Env?} parentEnv@param {string?} name*/constructor(parentEnv, name, init_pos){
         this.parent = parentEnv;
         this.name = name;
         this.vars = {};
-        this.consts = [];
-    }
-
-    declareVar(name, value, const_){
-        if(name in this.vars) throw `cannot re-init ${name} in ${this.name} as it exit`;
-        this.vars[name] = value;
-        if(const_) this.consts.push(name);
-        return value;
-    }
-
-    assignVar(name, value){
-        const env = this.resolve(name, 'assignVar');
-
-        if(env.consts.includes(name)) throw `cannot re-assign to ${name} in ${this.name} as it is const`;
-        env.vars[name] = value;
-        return value;
-    }
-
-    lookupVar(name){
-        const env = this.resolve(name, 'lookupVar');
-        return env.vars[name];
-    }
-
-    resolve(name, lookup){
-        if(name in this.vars) return this;
-
-        if( !this.parent) throw `var ${name} no exist in ${this.name} when doing ${lookup ?? 'spaghetti'}`;
         
-        return this.parent.resolve(name, '', this);
+        this.consts = [];
+        this.builts = [];
+
+        this.pos = init_pos ?? 0;
+    }
+    
+    clear(){
+        for(let i in this.vars){
+            if(! this.builts.includes(i)){
+                delete this.vars[i];
+            }
+        }
+    }
+
+    declareVar(node, name, value, const_, builtIn){
+        const res = RuntimeRes(`Declare Var in ${this.name}`);
+
+        if(name in this.vars){
+            return res.failure( RuntimeErr(
+                `Cannot re-define variable '${name}'.`,
+                node.pos,
+                this
+            ) );
+        }
+
+        this.vars[name] = value;
+        
+        if(const_) this.consts.push(name);
+        if(builtIn) this.builts.push(name);
+        
+        return res.success(value);
+    }
+
+    assignVar(node, name, value){
+        const res = RuntimeRes(`Assign Var in ${this.name}`);
+
+        if(res.check( this.resolve(node, name, 'assignVar') ) .error) return res;
+
+        if(res.value .consts.includes(name)) return res.failure( RuntimeErr(
+            `Cannot re-assign to variable '${name}' as it is a Constant.`,
+            node.pos,
+            this
+        ) );
+        
+        res.value .vars[name] = value;
+        
+        return res.success(value);
+    }
+
+    lookupVar(node, name){
+        const res = RuntimeRes(`Lookup Var in ${this.name}`);
+        if(res.check( this.resolve(node, name, 'lookupVar') ) .error) return res;
+
+        return res.success(res.value .vars[name]);
+    }
+
+    resolve(node, name, lookup){
+        const res = RuntimeRes(`Resolve Env in ${this.name}`);
+        if(name in this.vars) return res.success(this);
+
+        if( !this.parent) {
+            return res.failure( RuntimeErr(
+                `Variable '${name}' is not defined.`,
+                node.pos,
+                this
+            ) );
+        }
+        
+        return res.check( this.parent.resolve(node, name, '', this) );
     }
 
 }
